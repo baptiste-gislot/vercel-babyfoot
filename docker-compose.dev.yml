@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mylegifoot-db
+    environment:
+      POSTGRES_DB: mylegifoot
+      POSTGRES_USER: mylegifoot
+      POSTGRES_PASSWORD: mylegifoot
+    ports:
+      - "54312:5432"
+    volumes:
+      - mylegifoot_data:/var/lib/postgresql/data
+      - ./scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  app:
+    image: node:22-alpine
+    container_name: mylegifoot
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://mylegifoot:mylegifoot@postgres:5432/mylgifoot
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+    command: sh -c "corepack enable pnpm && pnpm install && pnpm dev"
+    restart: unless-stopped
+
+volumes:
+  mylegifoot_data:

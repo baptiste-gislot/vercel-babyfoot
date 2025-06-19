@@ -1,10 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
-
-// Utiliser les variables d'environnement disponibles
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseKey)
+import pool from './postgres'
 
 export interface Player {
   id: string
@@ -26,32 +20,23 @@ export interface Match {
 // Fonctions pour les joueurs
 export async function getPlayers(): Promise<Player[]> {
   try {
-    const { data, error } = await supabase.from("players").select("*").order("name")
-
-    if (error) {
-      console.error("Erreur lors de la récupération des joueurs:", error)
-      return []
-    }
-
-    return data || []
+    const result = await pool.query('SELECT * FROM players ORDER BY name')
+    return result.rows
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la récupération des joueurs:", error)
     return []
   }
 }
 
 export async function createPlayer(name: string): Promise<Player | null> {
   try {
-    const { data, error } = await supabase.from("players").insert([{ name }]).select().single()
-
-    if (error) {
-      console.error("Erreur lors de la création du joueur:", error)
-      return null
-    }
-
-    return data
+    const result = await pool.query(
+      'INSERT INTO players (name) VALUES ($1) RETURNING *',
+      [name]
+    )
+    return result.rows[0]
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la création du joueur:", error)
     return null
   }
 }
@@ -59,16 +44,10 @@ export async function createPlayer(name: string): Promise<Player | null> {
 // 🆕 Nouvelle fonction : Supprimer un joueur
 export async function deletePlayer(playerId: string): Promise<boolean> {
   try {
-    const { error } = await supabase.from("players").delete().eq("id", playerId)
-
-    if (error) {
-      console.error("Erreur lors de la suppression du joueur:", error)
-      return false
-    }
-
+    await pool.query('DELETE FROM players WHERE id = $1', [playerId])
     return true
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la suppression du joueur:", error)
     return false
   }
 }
@@ -76,16 +55,13 @@ export async function deletePlayer(playerId: string): Promise<boolean> {
 // 🆕 Nouvelle fonction : Modifier un joueur
 export async function updatePlayer(playerId: string, name: string): Promise<Player | null> {
   try {
-    const { data, error } = await supabase.from("players").update({ name }).eq("id", playerId).select().single()
-
-    if (error) {
-      console.error("Erreur lors de la modification du joueur:", error)
-      return null
-    }
-
-    return data
+    const result = await pool.query(
+      'UPDATE players SET name = $1 WHERE id = $2 RETURNING *',
+      [name, playerId]
+    )
+    return result.rows[0]
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la modification du joueur:", error)
     return null
   }
 }
@@ -93,17 +69,11 @@ export async function updatePlayer(playerId: string, name: string): Promise<Play
 // Fonctions pour les matchs
 export async function getMatches(): Promise<Match[]> {
   try {
-    const { data, error } = await supabase.from("matches").select("*").order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Erreur lors de la récupération des matchs:", error)
-      return []
-    }
-
-    return data || []
+    const result = await pool.query('SELECT * FROM matches ORDER BY created_at DESC')
+    return result.rows
   } catch (error) {
-    console.error("Erreur de connexion:", error)
-    return null
+    console.error("Erreur lors de la récupération des matchs:", error)
+    return []
   }
 }
 
@@ -116,16 +86,13 @@ export async function createMatch(match: {
   score_b: number
 }): Promise<Match | null> {
   try {
-    const { data, error } = await supabase.from("matches").insert([match]).select().single()
-
-    if (error) {
-      console.error("Erreur lors de la création du match:", error)
-      return null
-    }
-
-    return data
+    const result = await pool.query(
+      'INSERT INTO matches (team_a_player_1, team_a_player_2, team_b_player_1, team_b_player_2, score_a, score_b) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [match.team_a_player_1, match.team_a_player_2, match.team_b_player_1, match.team_b_player_2, match.score_a, match.score_b]
+    )
+    return result.rows[0]
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la création du match:", error)
     return null
   }
 }
@@ -133,16 +100,10 @@ export async function createMatch(match: {
 // 🆕 Nouvelle fonction : Supprimer un match
 export async function deleteMatch(matchId: string): Promise<boolean> {
   try {
-    const { error } = await supabase.from("matches").delete().eq("id", matchId)
-
-    if (error) {
-      console.error("Erreur lors de la suppression du match:", error)
-      return false
-    }
-
+    await pool.query('DELETE FROM matches WHERE id = $1', [matchId])
     return true
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la suppression du match:", error)
     return false
   }
 }
@@ -160,16 +121,13 @@ export async function updateMatch(
   },
 ): Promise<Match | null> {
   try {
-    const { data, error } = await supabase.from("matches").update(match).eq("id", matchId).select().single()
-
-    if (error) {
-      console.error("Erreur lors de la modification du match:", error)
-      return null
-    }
-
-    return data
+    const result = await pool.query(
+      'UPDATE matches SET team_a_player_1 = $1, team_a_player_2 = $2, team_b_player_1 = $3, team_b_player_2 = $4, score_a = $5, score_b = $6 WHERE id = $7 RETURNING *',
+      [match.team_a_player_1, match.team_a_player_2, match.team_b_player_1, match.team_b_player_2, match.score_a, match.score_b, matchId]
+    )
+    return result.rows[0]
   } catch (error) {
-    console.error("Erreur de connexion:", error)
+    console.error("Erreur lors de la modification du match:", error)
     return null
   }
 }
